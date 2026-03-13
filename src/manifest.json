@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Notiion - Productivity Check-in",
+  "version": "1.0.0",
+  "description": "Set productivity timers and log check-ins directly to Notion.",
+  "permissions": [
+    "alarms",
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://api.notion.com/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icon16.png",
+      "48": "assets/icon48.png",
+      "128": "assets/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

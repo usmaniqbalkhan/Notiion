@@ -1,0 +1,16 @@
+{
+  "name": "notiion",
+  "version": "1.0.0",
+  "description": "Productivity check-in timer with Notion logging",
+  "private": true,
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}

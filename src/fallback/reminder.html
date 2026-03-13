@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="../content/modal.css">
+  <link rel="stylesheet" href="reminder.css">
+  <title>Notiion - Check-in</title>
+</head>
+<body>
+  <div class="reminder-container">
+    <header class="reminder-header">
+      <h1 class="reminder-title">Productivity Check-in</h1>
+      <p class="reminder-subtitle">Time's up! How did your session go?</p>
+    </header>
+
+    <div id="formContainer"></div>
+
+    <!-- Toast area -->
+    <div id="toast" class="notiion-toast" style="display: none;"></div>
+
+    <!-- Action buttons -->
+    <div class="reminder-actions" id="actions">
+      <button class="notiion-btn notiion-btn-submit" id="submitBtn">Submit</button>
+      <button class="notiion-btn notiion-btn-snooze" id="snoozeBtn">Snooze</button>
+      <button class="notiion-btn notiion-btn-skip" id="skipBtn">Skip</button>
+      <button class="notiion-btn notiion-btn-draft" id="draftBtn">Save Draft</button>
+    </div>
+  </div>
+  <script src="reminder.js"></script>
+</body>
+</html>
