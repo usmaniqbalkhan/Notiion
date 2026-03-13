@@ -307,9 +307,9 @@
   var toast = document.getElementById("toast");
   var submitBtn = document.getElementById("submitBtn");
   var snoozeBtn = document.getElementById("snoozeBtn");
-  var skipBtn = document.getElementById("skipBtn");
   var draftBtn = document.getElementById("draftBtn");
   var actions = document.getElementById("actions");
+  var autofillBadge = document.getElementById("autofillBadge");
   var collectData = null;
   async function init() {
     const settings = await getNotionSettings();
@@ -319,8 +319,15 @@
       lastFormData: lastSub?.formData || null,
       submittedAt: lastSub?.submittedAt || null
     };
+    if (lastSub?.formData) {
+      autofillBadge.style.display = "inline-flex";
+    }
     const form = renderDynamicForm(formContainer, dbProps, autoFill);
     collectData = form.collectData;
+    requestAnimationFrame(() => {
+      const firstInput = formContainer.querySelector(".notiion-input");
+      if (firstInput) firstInput.focus();
+    });
   }
   function fallbackProperties() {
     return [
@@ -332,22 +339,22 @@
   submitBtn.addEventListener("click", async () => {
     if (!collectData) return;
     disableButtons();
+    submitBtn.innerHTML = '<span class="notiion-spinner"></span> Submitting...';
     const formData = collectData();
     const resp = await sendMessage({ type: "SUBMIT_CHECKIN" /* SUBMIT_CHECKIN */, formData });
     if (resp.success) {
       showToast("Check-in saved to Notion!", "success");
+      submitBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg> Saved!';
+      submitBtn.classList.add("notiion-btn-success");
       setTimeout(() => window.close(), 1500);
     } else {
       showToast(resp.error || "Failed to save. Draft saved locally.", "error");
+      submitBtn.textContent = "Submit Check-in";
       enableButtons();
     }
   });
   snoozeBtn.addEventListener("click", async () => {
     await sendMessage({ type: "SNOOZE" /* SNOOZE */ });
-    window.close();
-  });
-  skipBtn.addEventListener("click", async () => {
-    await sendMessage({ type: "SKIP" /* SKIP */ });
     window.close();
   });
   draftBtn.addEventListener("click", async () => {
@@ -356,11 +363,6 @@
     await sendMessage({ type: "SAVE_DRAFT" /* SAVE_DRAFT */, formData });
     showToast("Draft saved locally.", "success");
     setTimeout(() => window.close(), 1200);
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      sendMessage({ type: "SNOOZE" /* SNOOZE */ }).then(() => window.close());
-    }
   });
   function showToast(message, type) {
     toast.textContent = message;

@@ -40,26 +40,47 @@ function createModal(dbProperties: DbProperty[], autoFill?: AutoFillData) {
   const modal = document.createElement('div');
   modal.className = 'notiion-modal';
 
-  // Header
+  // Header — branded, no close button (non-dismissable)
   const header = document.createElement('div');
   header.className = 'notiion-modal-header';
+
+  const brandRow = document.createElement('div');
+  brandRow.className = 'notiion-brand-row';
+
+  const logoIcon = document.createElement('div');
+  logoIcon.className = 'notiion-logo-icon';
+  logoIcon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+
+  const brandText = document.createElement('div');
+  brandText.className = 'notiion-brand-text';
 
   const title = document.createElement('h2');
   title.className = 'notiion-modal-title';
   title.textContent = 'Productivity Check-in';
 
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'notiion-modal-close';
-  closeBtn.innerHTML = '&times;';
-  closeBtn.title = 'Close (Skip)';
-  closeBtn.addEventListener('click', () => handleSkip(overlay));
+  const subtitle = document.createElement('p');
+  subtitle.className = 'notiion-modal-subtitle';
+  subtitle.textContent = 'Log your session to stay on track';
 
-  header.appendChild(title);
-  header.appendChild(closeBtn);
+  brandText.appendChild(title);
+  brandText.appendChild(subtitle);
+  brandRow.appendChild(logoIcon);
+  brandRow.appendChild(brandText);
+  header.appendChild(brandRow);
+
+  // Auto-fill indicator
+  if (autoFill?.lastFormData) {
+    const badge = document.createElement('div');
+    badge.className = 'notiion-autofill-badge';
+    badge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Times auto-filled from last session`;
+    header.appendChild(badge);
+  }
+
   modal.appendChild(header);
 
   // Dynamic form from DB properties
   const formContainer = document.createElement('div');
+  formContainer.className = 'notiion-form-container';
   const { collectData } = renderDynamicForm(formContainer, dbProperties, autoFill);
   modal.appendChild(formContainer);
 
@@ -69,82 +90,76 @@ function createModal(dbProperties: DbProperty[], autoFill?: AutoFillData) {
   toast.style.display = 'none';
   modal.appendChild(toast);
 
-  // Action buttons
+  // Action buttons — Submit primary, Snooze & Draft secondary (no Skip, no Close)
   const actions = document.createElement('div');
   actions.className = 'notiion-actions';
 
-  const submitBtn = createButton('Submit', 'notiion-btn-submit', async () => {
+  const submitBtn = createButton('Submit Check-in', 'notiion-btn notiion-btn-submit', async () => {
     disableButtons(actions);
+    submitBtn.innerHTML = '<span class="notiion-spinner"></span> Submitting...';
     const formData = collectData();
     const resp = await sendMessage({ type: MessageType.SUBMIT_CHECKIN, formData });
     if (resp.success) {
       showToast(toast, 'Check-in saved to Notion!', 'success');
+      submitBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg> Saved!';
+      submitBtn.classList.add('notiion-btn-success');
       setTimeout(() => removeModal(overlay), 1500);
     } else {
       showToast(toast, resp.error || 'Failed to save. Draft saved locally.', 'error');
+      submitBtn.textContent = 'Submit Check-in';
       enableButtons(actions);
-      setTimeout(() => removeModal(overlay), 3000);
     }
   });
 
-  const snoozeBtn = createButton('Snooze', 'notiion-btn-snooze', async () => {
+  const secondaryRow = document.createElement('div');
+  secondaryRow.className = 'notiion-secondary-actions';
+
+  const snoozeBtn = createButton('Snooze 5 min', 'notiion-btn notiion-btn-snooze', async () => {
     await sendMessage({ type: MessageType.SNOOZE });
     removeModal(overlay);
   });
 
-  const skipBtn = createButton('Skip', 'notiion-btn-skip', () => handleSkip(overlay));
-
-  const draftBtn = createButton('Save Draft', 'notiion-btn-draft', async () => {
+  const draftBtn = createButton('Save as Draft', 'notiion-btn notiion-btn-draft', async () => {
     const formData = collectData();
     await sendMessage({ type: MessageType.SAVE_DRAFT, formData });
     showToast(toast, 'Draft saved locally.', 'success');
     setTimeout(() => removeModal(overlay), 1200);
   });
 
+  secondaryRow.appendChild(snoozeBtn);
+  secondaryRow.appendChild(draftBtn);
+
   actions.appendChild(submitBtn);
-  actions.appendChild(snoozeBtn);
-  actions.appendChild(skipBtn);
-  actions.appendChild(draftBtn);
+  actions.appendChild(secondaryRow);
   modal.appendChild(actions);
 
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  document.addEventListener('keydown', function onKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      handleSnooze(overlay);
-      document.removeEventListener('keydown', onKey);
-    }
-  });
+  // NO Escape key dismiss — popup is non-dismissable
+  // NO overlay click dismiss — must submit or snooze
 
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) handleSnooze(overlay);
+  // Focus first input
+  requestAnimationFrame(() => {
+    const firstInput = modal.querySelector<HTMLInputElement>('.notiion-input');
+    if (firstInput) firstInput.focus();
   });
 }
 
 function createButton(text: string, className: string, onClick: () => void): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = `notiion-btn ${className}`;
+  btn.className = className;
   btn.textContent = text;
   btn.addEventListener('click', onClick);
   return btn;
 }
 
-async function handleSkip(overlay: HTMLElement) {
-  await sendMessage({ type: MessageType.SKIP });
-  removeModal(overlay);
-}
-
-async function handleSnooze(overlay: HTMLElement) {
-  await sendMessage({ type: MessageType.SNOOZE });
-  removeModal(overlay);
-}
-
 function removeModal(overlay: HTMLElement) {
-  overlay.style.opacity = '0';
-  overlay.style.transition = 'opacity 0.2s';
-  setTimeout(() => overlay.remove(), 200);
+  overlay.classList.add('notiion-overlay-exit');
+  const modal = overlay.querySelector('.notiion-modal');
+  if (modal) modal.classList.add('notiion-modal-exit');
+  setTimeout(() => overlay.remove(), 300);
 }
 
 function showToast(el: HTMLElement, message: string, type: 'success' | 'error') {

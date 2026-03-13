@@ -7,9 +7,9 @@ const formContainer = document.getElementById('formContainer')!;
 const toast = document.getElementById('toast')!;
 const submitBtn = document.getElementById('submitBtn')!;
 const snoozeBtn = document.getElementById('snoozeBtn')!;
-const skipBtn = document.getElementById('skipBtn')!;
 const draftBtn = document.getElementById('draftBtn')!;
 const actions = document.getElementById('actions')!;
+const autofillBadge = document.getElementById('autofillBadge')!;
 
 let collectData: (() => Record<string, string | number | string[]>) | null = null;
 
@@ -26,8 +26,19 @@ async function init() {
     submittedAt: lastSub?.submittedAt || null,
   };
 
+  // Show auto-fill badge if we have last data
+  if (lastSub?.formData) {
+    autofillBadge.style.display = 'inline-flex';
+  }
+
   const form = renderDynamicForm(formContainer, dbProps, autoFill);
   collectData = form.collectData;
+
+  // Focus first input
+  requestAnimationFrame(() => {
+    const firstInput = formContainer.querySelector<HTMLInputElement>('.notiion-input');
+    if (firstInput) firstInput.focus();
+  });
 }
 
 function fallbackProperties(): DbProperty[] {
@@ -42,13 +53,17 @@ function fallbackProperties(): DbProperty[] {
 submitBtn.addEventListener('click', async () => {
   if (!collectData) return;
   disableButtons();
+  submitBtn.innerHTML = '<span class="notiion-spinner"></span> Submitting...';
   const formData = collectData();
   const resp = await sendMessage({ type: MessageType.SUBMIT_CHECKIN, formData });
   if (resp.success) {
     showToast('Check-in saved to Notion!', 'success');
+    submitBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg> Saved!';
+    submitBtn.classList.add('notiion-btn-success');
     setTimeout(() => window.close(), 1500);
   } else {
     showToast(resp.error || 'Failed to save. Draft saved locally.', 'error');
+    submitBtn.textContent = 'Submit Check-in';
     enableButtons();
   }
 });
@@ -58,10 +73,7 @@ snoozeBtn.addEventListener('click', async () => {
   window.close();
 });
 
-skipBtn.addEventListener('click', async () => {
-  await sendMessage({ type: MessageType.SKIP });
-  window.close();
-});
+// NO Skip button — popup is non-dismissable until submit/snooze/draft
 
 draftBtn.addEventListener('click', async () => {
   if (!collectData) return;
@@ -71,11 +83,7 @@ draftBtn.addEventListener('click', async () => {
   setTimeout(() => window.close(), 1200);
 });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    sendMessage({ type: MessageType.SNOOZE }).then(() => window.close());
-  }
-});
+// NO Escape key dismiss — non-dismissable
 
 function showToast(message: string, type: 'success' | 'error') {
   toast.textContent = message;

@@ -8,23 +8,39 @@
   <title>Notiion - Check-in</title>
 </head>
 <body>
-  <div class="reminder-container">
-    <header class="reminder-header">
-      <h1 class="reminder-title">Productivity Check-in</h1>
-      <p class="reminder-subtitle">Time's up! How did your session go?</p>
-    </header>
+  <div class="reminder-wrapper">
+    <div class="reminder-container">
+      <!-- Header -->
+      <header class="reminder-header">
+        <div class="reminder-brand">
+          <div class="reminder-logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <h1 class="reminder-title">Productivity Check-in</h1>
+            <p class="reminder-subtitle">Log your session to stay on track</p>
+          </div>
+        </div>
+        <div id="autofillBadge" class="notiion-autofill-badge" style="display:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Times auto-filled from last session
+        </div>
+      </header>
 
-    <div id="formContainer"></div>
+      <!-- Form -->
+      <div class="reminder-form" id="formContainer"></div>
 
-    <!-- Toast area -->
-    <div id="toast" class="notiion-toast" style="display: none;"></div>
+      <!-- Toast area -->
+      <div id="toast" class="notiion-toast" style="display: none;"></div>
 
-    <!-- Action buttons -->
-    <div class="reminder-actions" id="actions">
-      <button class="notiion-btn notiion-btn-submit" id="submitBtn">Submit</button>
-      <button class="notiion-btn notiion-btn-snooze" id="snoozeBtn">Snooze</button>
-      <button class="notiion-btn notiion-btn-skip" id="skipBtn">Skip</button>
-      <button class="notiion-btn notiion-btn-draft" id="draftBtn">Save Draft</button>
+      <!-- Action buttons — no Skip -->
+      <div class="reminder-actions" id="actions">
+        <button class="notiion-btn notiion-btn-submit" id="submitBtn">Submit Check-in</button>
+        <div class="notiion-secondary-actions">
+          <button class="notiion-btn notiion-btn-snooze" id="snoozeBtn">Snooze 5 min</button>
+          <button class="notiion-btn notiion-btn-draft" id="draftBtn">Save as Draft</button>
+        </div>
+      </div>
     </div>
   </div>
   <script src="reminder.js"></script>
