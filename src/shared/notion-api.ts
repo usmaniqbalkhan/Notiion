@@ -1,10 +1,10 @@
-import type { CheckInFormData, NotionSettings } from './types';
-import { mapFormDataToNotionProperties } from './field-mapping';
+import type { DynamicFormData, NotionSettings, DbProperty } from './types';
+import { mapDynamicFormToNotion } from './field-mapping';
 
 const NOTION_API_BASE = 'https://api.notion.com/v1';
 const NOTION_VERSION = '2022-06-28';
 
-interface NotionApiResult {
+export interface NotionApiResult {
   success: boolean;
   error?: string;
   data?: unknown;
@@ -13,22 +13,14 @@ interface NotionApiResult {
 // Extract the 32-char database ID from a full Notion URL or raw ID
 export function parseDatabaseId(input: string): string {
   const trimmed = input.trim();
-
-  // If it's a URL, extract the ID from the path
   if (trimmed.startsWith('http')) {
     try {
       const url = new URL(trimmed);
-      // Notion URL format: notion.so/{workspace}/{id}?v=... or notion.so/{id}?v=...
       const pathParts = url.pathname.split('/').filter(Boolean);
       const lastPart = pathParts[pathParts.length - 1] || '';
-      // Remove any dashes (Notion sometimes uses dashed UUIDs)
       return lastPart.replace(/-/g, '');
-    } catch {
-      // Not a valid URL, fall through
-    }
+    } catch { /* fall through */ }
   }
-
-  // Already a raw ID — strip dashes just in case
   return trimmed.replace(/-/g, '');
 }
 
@@ -70,29 +62,38 @@ export async function testConnection(
   }
 }
 
-// Database property info returned from schema fetch
-export interface NotionProperty {
-  name: string;
-  type: string;
-}
-
-// Extract property names and types from a database schema response
-export function extractDatabaseProperties(dbData: Record<string, unknown>): NotionProperty[] {
-  const properties = dbData.properties as Record<string, { type: string }> | undefined;
+// Extract property names, types, and select options from a database schema response
+export function extractDatabaseProperties(dbData: Record<string, unknown>): DbProperty[] {
+  const properties = dbData.properties as Record<string, Record<string, unknown>> | undefined;
   if (!properties) return [];
-  return Object.entries(properties).map(([name, prop]) => ({
-    name,
-    type: prop.type,
-  }));
+
+  return Object.entries(properties).map(([name, prop]) => {
+    const dbProp: DbProperty = {
+      name,
+      type: prop.type as string,
+    };
+
+    // Extract select/multi_select options
+    if (prop.type === 'select' && prop.select) {
+      const selectConfig = prop.select as { options?: Array<{ name: string }> };
+      dbProp.selectOptions = (selectConfig.options || []).map(o => o.name);
+    }
+    if (prop.type === 'multi_select' && prop.multi_select) {
+      const msConfig = prop.multi_select as { options?: Array<{ name: string }> };
+      dbProp.selectOptions = (msConfig.options || []).map(o => o.name);
+    }
+
+    return dbProp;
+  });
 }
 
-// Create a new page (row) in the Notion database
+// Create a new page (row) in the Notion database using dynamic form data
 export async function createCheckInPage(
   settings: NotionSettings,
-  formData: CheckInFormData
+  formData: DynamicFormData
 ): Promise<NotionApiResult> {
   try {
-    const properties = mapFormDataToNotionProperties(formData, settings.fieldMappings);
+    const properties = mapDynamicFormToNotion(formData, settings.dbProperties);
 
     const id = parseDatabaseId(settings.databaseId);
     const body = {

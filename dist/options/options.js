@@ -14,18 +14,8 @@
   var DEFAULT_NOTION_SETTINGS = {
     token: "",
     databaseId: "",
-    fieldMappings: {
-      title: "Name",
-      datetime: "Date",
-      workedOn: "Worked On",
-      completed: "Completed",
-      activity: "Activity",
-      participants: "Participants",
-      challenges: "Challenges",
-      nextStep: "Next Step",
-      focusScore: "Focus Score",
-      tags: "Tags"
-    }
+    fieldMappings: {},
+    dbProperties: []
   };
   var DEFAULT_TIMER_PREFERENCES = {
     defaultDurationMs: 30 * 60 * 1e3,
@@ -73,43 +63,70 @@
   }
 
   // src/shared/field-mapping.ts
-  function mapFormDataToNotionProperties(formData, fieldMappings) {
+  function mapDynamicFormToNotion(formData, dbProperties) {
     const properties = {};
-    if (fieldMappings.title) {
-      properties[fieldMappings.title] = {
-        title: [{ text: { content: formData.title || "Untitled Session" } }]
-      };
-    }
-    if (fieldMappings.datetime && formData.datetime) {
-      properties[fieldMappings.datetime] = {
-        date: { start: new Date(formData.datetime).toISOString() }
-      };
-    }
-    const richTextFields = [
-      "workedOn",
-      "completed",
-      "activity",
-      "participants",
-      "challenges",
-      "nextStep"
-    ];
-    for (const field of richTextFields) {
-      const mappingKey = fieldMappings[field];
-      if (mappingKey && formData[field]) {
-        properties[mappingKey] = {
-          rich_text: [{ text: { content: String(formData[field]) } }]
-        };
+    for (const prop of dbProperties) {
+      const value = formData[prop.name];
+      if (value === void 0 || value === "" || value === null) continue;
+      switch (prop.type) {
+        case "title":
+          properties[prop.name] = {
+            title: [{ text: { content: String(value) } }]
+          };
+          break;
+        case "rich_text":
+          properties[prop.name] = {
+            rich_text: [{ text: { content: String(value) } }]
+          };
+          break;
+        case "date":
+          if (String(value).trim()) {
+            properties[prop.name] = {
+              date: { start: new Date(String(value)).toISOString() }
+            };
+          }
+          break;
+        case "number":
+          properties[prop.name] = {
+            number: Number(value) || 0
+          };
+          break;
+        case "select":
+          properties[prop.name] = {
+            select: { name: String(value) }
+          };
+          break;
+        case "multi_select": {
+          const tags = Array.isArray(value) ? value : String(value).split(",").map((s) => s.trim()).filter(Boolean);
+          if (tags.length > 0) {
+            properties[prop.name] = {
+              multi_select: tags.map((tag) => ({ name: tag }))
+            };
+          }
+          break;
+        }
+        case "checkbox":
+          properties[prop.name] = {
+            checkbox: value === true || value === "true" || value === "1"
+          };
+          break;
+        case "url":
+          properties[prop.name] = { url: String(value) };
+          break;
+        case "email":
+          properties[prop.name] = { email: String(value) };
+          break;
+        case "phone_number":
+          properties[prop.name] = { phone_number: String(value) };
+          break;
+        default:
+          if (String(value).trim()) {
+            properties[prop.name] = {
+              rich_text: [{ text: { content: String(value) } }]
+            };
+          }
+          break;
       }
-    }
-    if (fieldMappings.focusScore && formData.focusScore) {
-      properties[fieldMappings.focusScore] = {
-        number: formData.focusScore
-      };
-    }
-    if (fieldMappings.tags && formData.tags && formData.tags.length > 0) {
-      properties[fieldMappings.tags] = {
-        multi_select: formData.tags.map((tag) => ({ name: tag }))
-      };
     }
     return properties;
   }
@@ -163,14 +180,25 @@
   function extractDatabaseProperties(dbData) {
     const properties = dbData.properties;
     if (!properties) return [];
-    return Object.entries(properties).map(([name, prop]) => ({
-      name,
-      type: prop.type
-    }));
+    return Object.entries(properties).map(([name, prop]) => {
+      const dbProp = {
+        name,
+        type: prop.type
+      };
+      if (prop.type === "select" && prop.select) {
+        const selectConfig = prop.select;
+        dbProp.selectOptions = (selectConfig.options || []).map((o) => o.name);
+      }
+      if (prop.type === "multi_select" && prop.multi_select) {
+        const msConfig = prop.multi_select;
+        dbProp.selectOptions = (msConfig.options || []).map((o) => o.name);
+      }
+      return dbProp;
+    });
   }
   async function createCheckInPage(settings, formData) {
     try {
-      const properties = mapFormDataToNotionProperties(formData, settings.fieldMappings);
+      const properties = mapDynamicFormToNotion(formData, settings.dbProperties);
       const id = parseDatabaseId(settings.databaseId);
       const body = {
         parent: { database_id: id },
@@ -198,72 +226,6 @@
     }
   }
 
-  // src/shared/form-schema.ts
-  var DEFAULT_FORM_SCHEMA = [
-    {
-      id: "title",
-      label: "Session Name",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Morning coding session"
-    },
-    {
-      id: "datetime",
-      label: "Date & Time",
-      type: "datetime",
-      autoFill: true
-    },
-    {
-      id: "workedOn",
-      label: "What did you work on?",
-      type: "textarea",
-      placeholder: "Describe what you focused on..."
-    },
-    {
-      id: "completed",
-      label: "What did you complete?",
-      type: "textarea",
-      placeholder: "List completed tasks..."
-    },
-    {
-      id: "activity",
-      label: "Activity performed",
-      type: "text",
-      placeholder: "e.g., Coding, Writing, Design"
-    },
-    {
-      id: "participants",
-      label: "Participants",
-      type: "text",
-      placeholder: "Who else was involved?"
-    },
-    {
-      id: "challenges",
-      label: "Challenges / Blockers",
-      type: "textarea",
-      placeholder: "Any obstacles encountered?"
-    },
-    {
-      id: "nextStep",
-      label: "Next step",
-      type: "textarea",
-      placeholder: "What will you do next?"
-    },
-    {
-      id: "focusScore",
-      label: "Focus Score",
-      type: "rating",
-      min: 1,
-      max: 5
-    },
-    {
-      id: "tags",
-      label: "Tags",
-      type: "tags",
-      placeholder: "Add tags (press Enter)"
-    }
-  ];
-
   // src/options/options.ts
   var notionToken = document.getElementById("notionToken");
   var toggleTokenBtn = document.getElementById("toggleToken");
@@ -282,121 +244,120 @@
   var draftList = document.getElementById("draftList");
   var retryDraftsBtn = document.getElementById("retryDrafts");
   var clearDraftsBtn = document.getElementById("clearDrafts");
+  var currentDbProperties = [];
   toggleTokenBtn.addEventListener("click", () => {
     const isPassword = notionToken.type === "password";
     notionToken.type = isPassword ? "text" : "password";
     toggleTokenBtn.textContent = isPassword ? "Hide" : "Show";
   });
-  var detectedProperties = [];
   testConnectionBtn.addEventListener("click", async () => {
     connectionStatus.textContent = "Testing...";
     connectionStatus.className = "status-text";
     const result = await testConnection(notionToken.value, databaseId.value);
     if (result.success) {
-      connectionStatus.textContent = "Connected successfully!";
-      connectionStatus.className = "status-text success";
-      const currentMappings = collectFieldMappings();
+      currentDbProperties = extractDatabaseProperties(result.data);
       await setNotionSettings({
         token: notionToken.value.trim(),
         databaseId: databaseId.value.trim(),
-        fieldMappings: currentMappings
+        fieldMappings: {},
+        dbProperties: currentDbProperties
       });
-      detectedProperties = extractDatabaseProperties(result.data);
-      if (detectedProperties.length > 0) {
-        const autoMappings = autoMapFields(detectedProperties, currentMappings);
-        renderFieldMappings(autoMappings, detectedProperties);
-        await setNotionSettings({
-          token: notionToken.value.trim(),
-          databaseId: databaseId.value.trim(),
-          fieldMappings: autoMappings
-        });
-        connectionStatus.textContent = `Connected! Found ${detectedProperties.length} properties. Mappings updated.`;
-      }
+      renderDetectedProperties(currentDbProperties);
+      connectionStatus.textContent = `Connected! Found ${currentDbProperties.length} properties. Form will use these columns.`;
+      connectionStatus.className = "status-text success";
     } else {
       connectionStatus.textContent = result.error || "Connection failed";
       connectionStatus.className = "status-text error";
     }
   });
-  function autoMapFields(properties, currentMappings) {
-    const mappings = { ...currentMappings };
-    const propNames = properties.map((p) => p.name);
-    for (const field of DEFAULT_FORM_SCHEMA) {
-      if (mappings[field.id] && propNames.includes(mappings[field.id])) continue;
-      const match = propNames.find((name) => {
-        const lower = name.toLowerCase();
-        const fieldLower = field.label.toLowerCase();
-        const fieldIdLower = field.id.toLowerCase();
-        return lower === fieldLower || lower === fieldIdLower || lower.includes(fieldIdLower) || fieldIdLower.includes(lower);
-      });
-      if (match) {
-        mappings[field.id] = match;
-      }
-    }
-    return mappings;
-  }
-  function renderFieldMappings(mappings, properties) {
+  function renderDetectedProperties(properties) {
     fieldMappingsContainer.innerHTML = "";
-    const props = properties || detectedProperties;
-    for (const field of DEFAULT_FORM_SCHEMA) {
+    if (properties.length === 0) {
+      fieldMappingsContainer.innerHTML = '<p style="color:#888">No properties detected. Click "Test Connection" to fetch your database columns.</p>';
+      return;
+    }
+    const header = document.createElement("p");
+    header.style.color = "#4ade80";
+    header.style.marginBottom = "12px";
+    header.style.fontSize = "13px";
+    header.textContent = "These columns from your Notion database will appear in the check-in form:";
+    fieldMappingsContainer.appendChild(header);
+    for (const prop of properties) {
+      if (isComputedProperty(prop.type)) continue;
       const row = document.createElement("div");
       row.className = "mapping-row";
-      const label = document.createElement("span");
-      label.className = "mapping-label";
-      label.textContent = field.label;
-      const arrow = document.createElement("span");
-      arrow.className = "mapping-arrow";
-      arrow.textContent = "\u2192";
-      if (props.length > 0) {
-        const select = document.createElement("select");
-        select.className = "input mapping-input";
-        select.dataset.fieldId = field.id;
-        const emptyOpt = document.createElement("option");
-        emptyOpt.value = "";
-        emptyOpt.textContent = "-- Not mapped --";
-        select.appendChild(emptyOpt);
-        for (const prop of props) {
-          const opt = document.createElement("option");
-          opt.value = prop.name;
-          opt.textContent = `${prop.name} (${prop.type})`;
-          if (mappings[field.id] === prop.name) {
-            opt.selected = true;
-          }
-          select.appendChild(opt);
-        }
-        row.appendChild(label);
-        row.appendChild(arrow);
-        row.appendChild(select);
-      } else {
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "input mapping-input";
-        input.dataset.fieldId = field.id;
-        input.value = mappings[field.id] || "";
-        input.placeholder = `Notion property name for "${field.label}"`;
-        row.appendChild(label);
-        row.appendChild(arrow);
-        row.appendChild(input);
-      }
+      const nameEl = document.createElement("span");
+      nameEl.className = "mapping-label";
+      nameEl.style.textAlign = "left";
+      nameEl.style.flex = "1";
+      nameEl.textContent = prop.name;
+      const typeEl = document.createElement("span");
+      typeEl.className = "prop-type-badge";
+      typeEl.textContent = prop.type;
+      const inputType = document.createElement("span");
+      inputType.style.color = "#888";
+      inputType.style.fontSize = "12px";
+      inputType.style.flex = "0 0 140px";
+      inputType.textContent = getInputDescription(prop.type);
+      row.appendChild(nameEl);
+      row.appendChild(typeEl);
+      row.appendChild(inputType);
       fieldMappingsContainer.appendChild(row);
+      if (prop.selectOptions && prop.selectOptions.length > 0) {
+        const optionsRow = document.createElement("div");
+        optionsRow.style.paddingLeft = "12px";
+        optionsRow.style.marginBottom = "8px";
+        optionsRow.style.display = "flex";
+        optionsRow.style.flexWrap = "wrap";
+        optionsRow.style.gap = "4px";
+        for (const opt of prop.selectOptions) {
+          const chip = document.createElement("span");
+          chip.style.padding = "2px 8px";
+          chip.style.background = "#2d2b55";
+          chip.style.borderRadius = "12px";
+          chip.style.fontSize = "11px";
+          chip.style.color = "#c4b5fd";
+          chip.textContent = opt;
+          optionsRow.appendChild(chip);
+        }
+        fieldMappingsContainer.appendChild(optionsRow);
+      }
     }
   }
-  function collectFieldMappings() {
-    const mappings = {};
-    const elements = fieldMappingsContainer.querySelectorAll("input, select");
-    elements.forEach((el) => {
-      const element = el;
-      const fieldId = element.dataset.fieldId;
-      if (fieldId) {
-        mappings[fieldId] = element.value.trim();
-      }
-    });
-    return mappings;
+  function isComputedProperty(type) {
+    return [
+      "formula",
+      "rollup",
+      "created_time",
+      "created_by",
+      "last_edited_time",
+      "last_edited_by",
+      "unique_id",
+      "verification",
+      "button"
+    ].includes(type);
+  }
+  function getInputDescription(type) {
+    const map = {
+      title: "Text input",
+      rich_text: "Text input",
+      date: "Date picker",
+      number: "Number input",
+      select: "Dropdown",
+      multi_select: "Tag picker",
+      checkbox: "Checkbox",
+      url: "URL input",
+      email: "Email input",
+      phone_number: "Phone input"
+    };
+    return map[type] || "Text input";
   }
   saveBtn.addEventListener("click", async () => {
     const notionSettings = {
       token: notionToken.value.trim(),
       databaseId: databaseId.value.trim(),
-      fieldMappings: collectFieldMappings()
+      fieldMappings: {},
+      dbProperties: currentDbProperties
     };
     await setNotionSettings(notionSettings);
     await setTimerPreferences({
@@ -423,9 +384,10 @@
     for (const draft of drafts) {
       const item = document.createElement("div");
       item.className = "draft-item";
+      const titleValue = Object.values(draft.formData).find((v) => typeof v === "string" && v.length > 0) || "Untitled";
       const titleEl = document.createElement("span");
       titleEl.className = "draft-item-title";
-      titleEl.textContent = draft.formData.title || "Untitled";
+      titleEl.textContent = String(titleValue);
       const dateEl = document.createElement("span");
       dateEl.className = "draft-item-date";
       dateEl.textContent = new Date(draft.createdAt).toLocaleString();
@@ -460,7 +422,8 @@
     const settings = await getNotionSettings();
     notionToken.value = settings.token;
     databaseId.value = settings.databaseId;
-    renderFieldMappings(settings.fieldMappings || DEFAULT_NOTION_SETTINGS.fieldMappings);
+    currentDbProperties = settings.dbProperties || [];
+    renderDetectedProperties(currentDbProperties);
     const prefs = await getTimerPreferences();
     defaultDuration.value = String(prefs.defaultDurationMs / 6e4);
     snoozeDuration.value = String(prefs.snoozeDurationMs / 6e4);

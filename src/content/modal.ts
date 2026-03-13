@@ -1,18 +1,34 @@
-import { DEFAULT_FORM_SCHEMA } from '../shared/form-schema';
-import { renderForm } from '../shared/form-renderer';
+import { renderDynamicForm } from '../shared/form-renderer';
 import { MessageType, sendMessage } from '../shared/messages';
+import { getNotionSettings } from '../shared/storage';
+import type { DbProperty } from '../shared/types';
 
 // Prevent multiple injections
 if (!document.querySelector('.notiion-overlay')) {
-  createModal();
+  initModal();
 }
 
-function createModal() {
-  // Create overlay
+async function initModal() {
+  const settings = await getNotionSettings();
+  const dbProps = settings.dbProperties && settings.dbProperties.length > 0
+    ? settings.dbProperties
+    : fallbackProperties();
+  createModal(dbProps);
+}
+
+// Minimal fallback if DB not connected yet
+function fallbackProperties(): DbProperty[] {
+  return [
+    { name: 'Activity', type: 'title' },
+    { name: 'Date', type: 'date' },
+    { name: 'Notes', type: 'rich_text' },
+  ];
+}
+
+function createModal(dbProperties: DbProperty[]) {
   const overlay = document.createElement('div');
   overlay.className = 'notiion-overlay';
 
-  // Create modal container
   const modal = document.createElement('div');
   modal.className = 'notiion-modal';
 
@@ -34,9 +50,9 @@ function createModal() {
   header.appendChild(closeBtn);
   modal.appendChild(header);
 
-  // Form
+  // Dynamic form from DB properties
   const formContainer = document.createElement('div');
-  const { collectData } = renderForm(formContainer, DEFAULT_FORM_SCHEMA);
+  const { collectData } = renderDynamicForm(formContainer, dbProperties);
   modal.appendChild(formContainer);
 
   // Toast area
@@ -86,7 +102,6 @@ function createModal() {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
-  // Keyboard shortcuts
   document.addEventListener('keydown', function onKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       handleSnooze(overlay);
@@ -94,11 +109,8 @@ function createModal() {
     }
   });
 
-  // Click overlay background to snooze
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      handleSnooze(overlay);
-    }
+    if (e.target === overlay) handleSnooze(overlay);
   });
 }
 

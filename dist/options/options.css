@@ -211,6 +211,18 @@ select.input {
   flex: 1;
 }
 
+/* Property type badge */
+.prop-type-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  background: #16213e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #a78bfa;
+  flex: 0 0 auto;
+}
+
 /* Status text */
 .status-text {
   font-size: 13px;

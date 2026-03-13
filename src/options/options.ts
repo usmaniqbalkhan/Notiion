@@ -7,9 +7,8 @@ import {
   clearDrafts,
   removeDraft,
 } from '../shared/storage';
-import { testConnection, createCheckInPage, extractDatabaseProperties, type NotionProperty } from '../shared/notion-api';
-import { DEFAULT_NOTION_SETTINGS, type NotionSettings, type Draft } from '../shared/types';
-import { DEFAULT_FORM_SCHEMA } from '../shared/form-schema';
+import { testConnection, createCheckInPage, extractDatabaseProperties } from '../shared/notion-api';
+import type { NotionSettings, DbProperty } from '../shared/types';
 
 // DOM elements
 const notionToken = document.getElementById('notionToken') as HTMLInputElement;
@@ -30,6 +29,9 @@ const draftList = document.getElementById('draftList')!;
 const retryDraftsBtn = document.getElementById('retryDrafts')!;
 const clearDraftsBtn = document.getElementById('clearDrafts')!;
 
+// Current detected properties
+let currentDbProperties: DbProperty[] = [];
+
 // Toggle token visibility
 toggleTokenBtn.addEventListener('click', () => {
   const isPassword = notionToken.type === 'password';
@@ -37,144 +39,122 @@ toggleTokenBtn.addEventListener('click', () => {
   toggleTokenBtn.textContent = isPassword ? 'Hide' : 'Show';
 });
 
-// Detected Notion database properties (populated on successful connection)
-let detectedProperties: NotionProperty[] = [];
-
-// Test connection — auto-save settings and fetch DB schema on success
+// Test connection — auto-save settings + fetch DB schema
 testConnectionBtn.addEventListener('click', async () => {
   connectionStatus.textContent = 'Testing...';
   connectionStatus.className = 'status-text';
+
   const result = await testConnection(notionToken.value, databaseId.value);
   if (result.success) {
-    connectionStatus.textContent = 'Connected successfully!';
-    connectionStatus.className = 'status-text success';
+    // Extract database properties (columns)
+    currentDbProperties = extractDatabaseProperties(result.data as Record<string, unknown>);
 
-    // Auto-save token and database ID immediately so check-ins work
-    const currentMappings = collectFieldMappings();
+    // Auto-save everything immediately
     await setNotionSettings({
       token: notionToken.value.trim(),
       databaseId: databaseId.value.trim(),
-      fieldMappings: currentMappings,
+      fieldMappings: {},
+      dbProperties: currentDbProperties,
     });
 
-    // Extract database properties and re-render field mappings with dropdowns
-    detectedProperties = extractDatabaseProperties(result.data as Record<string, unknown>);
-    if (detectedProperties.length > 0) {
-      const autoMappings = autoMapFields(detectedProperties, currentMappings);
-      renderFieldMappings(autoMappings, detectedProperties);
-      // Auto-save the improved mappings
-      await setNotionSettings({
-        token: notionToken.value.trim(),
-        databaseId: databaseId.value.trim(),
-        fieldMappings: autoMappings,
-      });
-      connectionStatus.textContent = `Connected! Found ${detectedProperties.length} properties. Mappings updated.`;
-    }
+    // Show detected properties
+    renderDetectedProperties(currentDbProperties);
+
+    connectionStatus.textContent = `Connected! Found ${currentDbProperties.length} properties. Form will use these columns.`;
+    connectionStatus.className = 'status-text success';
   } else {
     connectionStatus.textContent = result.error || 'Connection failed';
     connectionStatus.className = 'status-text error';
   }
 });
 
-// Auto-map form fields to Notion properties by matching names (fuzzy)
-function autoMapFields(
-  properties: NotionProperty[],
-  currentMappings: Record<string, string>
-): Record<string, string> {
-  const mappings = { ...currentMappings };
-  const propNames = properties.map(p => p.name);
-
-  for (const field of DEFAULT_FORM_SCHEMA) {
-    // If already mapped to an existing property, keep it
-    if (mappings[field.id] && propNames.includes(mappings[field.id])) continue;
-
-    // Try to find a matching Notion property
-    const match = propNames.find(name => {
-      const lower = name.toLowerCase();
-      const fieldLower = field.label.toLowerCase();
-      const fieldIdLower = field.id.toLowerCase();
-      return lower === fieldLower || lower === fieldIdLower
-        || lower.includes(fieldIdLower) || fieldIdLower.includes(lower);
-    });
-    if (match) {
-      mappings[field.id] = match;
-    }
-  }
-  return mappings;
-}
-
-// Render field mapping inputs — uses dropdowns if database properties are detected
-function renderFieldMappings(mappings: Record<string, string>, properties?: NotionProperty[]) {
+// Render detected DB properties as a read-only list showing what the form will display
+function renderDetectedProperties(properties: DbProperty[]) {
   fieldMappingsContainer.innerHTML = '';
-  const props = properties || detectedProperties;
 
-  for (const field of DEFAULT_FORM_SCHEMA) {
+  if (properties.length === 0) {
+    fieldMappingsContainer.innerHTML = '<p style="color:#888">No properties detected. Click "Test Connection" to fetch your database columns.</p>';
+    return;
+  }
+
+  const header = document.createElement('p');
+  header.style.color = '#4ade80';
+  header.style.marginBottom = '12px';
+  header.style.fontSize = '13px';
+  header.textContent = 'These columns from your Notion database will appear in the check-in form:';
+  fieldMappingsContainer.appendChild(header);
+
+  for (const prop of properties) {
+    // Skip computed/auto fields
+    if (isComputedProperty(prop.type)) continue;
+
     const row = document.createElement('div');
     row.className = 'mapping-row';
 
-    const label = document.createElement('span');
-    label.className = 'mapping-label';
-    label.textContent = field.label;
+    const nameEl = document.createElement('span');
+    nameEl.className = 'mapping-label';
+    nameEl.style.textAlign = 'left';
+    nameEl.style.flex = '1';
+    nameEl.textContent = prop.name;
 
-    const arrow = document.createElement('span');
-    arrow.className = 'mapping-arrow';
-    arrow.textContent = '\u2192';
+    const typeEl = document.createElement('span');
+    typeEl.className = 'prop-type-badge';
+    typeEl.textContent = prop.type;
 
-    if (props.length > 0) {
-      // Render a dropdown select with detected properties
-      const select = document.createElement('select');
-      select.className = 'input mapping-input';
-      select.dataset.fieldId = field.id;
+    const inputType = document.createElement('span');
+    inputType.style.color = '#888';
+    inputType.style.fontSize = '12px';
+    inputType.style.flex = '0 0 140px';
+    inputType.textContent = getInputDescription(prop.type);
 
-      // Empty option
-      const emptyOpt = document.createElement('option');
-      emptyOpt.value = '';
-      emptyOpt.textContent = '-- Not mapped --';
-      select.appendChild(emptyOpt);
-
-      for (const prop of props) {
-        const opt = document.createElement('option');
-        opt.value = prop.name;
-        opt.textContent = `${prop.name} (${prop.type})`;
-        if (mappings[field.id] === prop.name) {
-          opt.selected = true;
-        }
-        select.appendChild(opt);
-      }
-
-      row.appendChild(label);
-      row.appendChild(arrow);
-      row.appendChild(select);
-    } else {
-      // Fallback: text input
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'input mapping-input';
-      input.dataset.fieldId = field.id;
-      input.value = mappings[field.id] || '';
-      input.placeholder = `Notion property name for "${field.label}"`;
-
-      row.appendChild(label);
-      row.appendChild(arrow);
-      row.appendChild(input);
-    }
-
+    row.appendChild(nameEl);
+    row.appendChild(typeEl);
+    row.appendChild(inputType);
     fieldMappingsContainer.appendChild(row);
+
+    // Show select options if available
+    if (prop.selectOptions && prop.selectOptions.length > 0) {
+      const optionsRow = document.createElement('div');
+      optionsRow.style.paddingLeft = '12px';
+      optionsRow.style.marginBottom = '8px';
+      optionsRow.style.display = 'flex';
+      optionsRow.style.flexWrap = 'wrap';
+      optionsRow.style.gap = '4px';
+      for (const opt of prop.selectOptions) {
+        const chip = document.createElement('span');
+        chip.style.padding = '2px 8px';
+        chip.style.background = '#2d2b55';
+        chip.style.borderRadius = '12px';
+        chip.style.fontSize = '11px';
+        chip.style.color = '#c4b5fd';
+        chip.textContent = opt;
+        optionsRow.appendChild(chip);
+      }
+      fieldMappingsContainer.appendChild(optionsRow);
+    }
   }
 }
 
-// Collect field mappings from UI (supports both <input> and <select>)
-function collectFieldMappings(): Record<string, string> {
-  const mappings: Record<string, string> = {};
-  const elements = fieldMappingsContainer.querySelectorAll('input, select');
-  elements.forEach(el => {
-    const element = el as HTMLInputElement | HTMLSelectElement;
-    const fieldId = element.dataset.fieldId;
-    if (fieldId) {
-      mappings[fieldId] = element.value.trim();
-    }
-  });
-  return mappings;
+function isComputedProperty(type: string): boolean {
+  return ['formula', 'rollup', 'created_time', 'created_by',
+    'last_edited_time', 'last_edited_by', 'unique_id',
+    'verification', 'button'].includes(type);
+}
+
+function getInputDescription(type: string): string {
+  const map: Record<string, string> = {
+    title: 'Text input',
+    rich_text: 'Text input',
+    date: 'Date picker',
+    number: 'Number input',
+    select: 'Dropdown',
+    multi_select: 'Tag picker',
+    checkbox: 'Checkbox',
+    url: 'URL input',
+    email: 'Email input',
+    phone_number: 'Phone input',
+  };
+  return map[type] || 'Text input';
 }
 
 // Save settings
@@ -182,7 +162,8 @@ saveBtn.addEventListener('click', async () => {
   const notionSettings: NotionSettings = {
     token: notionToken.value.trim(),
     databaseId: databaseId.value.trim(),
-    fieldMappings: collectFieldMappings(),
+    fieldMappings: {},
+    dbProperties: currentDbProperties,
   };
   await setNotionSettings(notionSettings);
 
@@ -216,9 +197,12 @@ async function renderDrafts() {
     const item = document.createElement('div');
     item.className = 'draft-item';
 
+    // Try to find the title property value from the dynamic form data
+    const titleValue = Object.values(draft.formData).find(v => typeof v === 'string' && v.length > 0) || 'Untitled';
+
     const titleEl = document.createElement('span');
     titleEl.className = 'draft-item-title';
-    titleEl.textContent = draft.formData.title || 'Untitled';
+    titleEl.textContent = String(titleValue);
 
     const dateEl = document.createElement('span');
     dateEl.className = 'draft-item-date';
@@ -264,7 +248,10 @@ async function init() {
   const settings = await getNotionSettings();
   notionToken.value = settings.token;
   databaseId.value = settings.databaseId;
-  renderFieldMappings(settings.fieldMappings || DEFAULT_NOTION_SETTINGS.fieldMappings);
+
+  // Load saved DB properties
+  currentDbProperties = settings.dbProperties || [];
+  renderDetectedProperties(currentDbProperties);
 
   const prefs = await getTimerPreferences();
   defaultDuration.value = String(prefs.defaultDurationMs / 60000);

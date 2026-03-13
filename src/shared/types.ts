@@ -21,28 +21,26 @@ export const DEFAULT_TIMER_STATE: TimerState = {
   snoozeDurationMs: 5 * 60 * 1000,
 };
 
+// A Notion database property with name and type
+export interface DbProperty {
+  name: string;
+  type: string; // title, rich_text, date, number, select, multi_select, checkbox, url, email, etc.
+  selectOptions?: string[]; // Available options for select/multi_select
+}
+
 // Notion integration settings
 export interface NotionSettings {
   token: string;
   databaseId: string;
-  fieldMappings: Record<string, string>; // formFieldId -> Notion property name
+  fieldMappings: Record<string, string>; // kept for backwards compat but not used in dynamic mode
+  dbProperties: DbProperty[];            // Detected database properties — drives the form
 }
 
 export const DEFAULT_NOTION_SETTINGS: NotionSettings = {
   token: '',
   databaseId: '',
-  fieldMappings: {
-    title: 'Name',
-    datetime: 'Date',
-    workedOn: 'Worked On',
-    completed: 'Completed',
-    activity: 'Activity',
-    participants: 'Participants',
-    challenges: 'Challenges',
-    nextStep: 'Next Step',
-    focusScore: 'Focus Score',
-    tags: 'Tags',
-  },
+  fieldMappings: {},
+  dbProperties: [],
 };
 
 // Timer preferences stored separately from active timer state
@@ -60,40 +58,15 @@ export const DEFAULT_TIMER_PREFERENCES: TimerPreferences = {
   snoozeDurationMs: 5 * 60 * 1000,
 };
 
-// Check-in form data
-export interface CheckInFormData {
-  title: string;
-  datetime: string;
-  workedOn: string;
-  completed: string;
-  activity: string;
-  participants: string;
-  challenges: string;
-  nextStep: string;
-  focusScore: number;
-  tags: string[];
-}
+// Dynamic form data — key is the Notion property name, value is the user input
+export type DynamicFormData = Record<string, string | number | string[]>;
 
 // Draft saved locally when Notion submission fails
 export interface Draft {
   id: string;
-  formData: CheckInFormData;
+  formData: DynamicFormData;
   createdAt: number;
   error?: string;
-}
-
-// Form field schema for extensible form rendering
-export type FormFieldType = 'text' | 'textarea' | 'datetime' | 'rating' | 'tags';
-
-export interface FormFieldSchema {
-  id: string;
-  label: string;
-  type: FormFieldType;
-  required?: boolean;
-  autoFill?: boolean;
-  placeholder?: string;
-  min?: number;
-  max?: number;
 }
 
 // Storage keys

@@ -125,6 +125,55 @@
   min-height: 70px;
 }
 
+/* Select dropdown */
+.notiion-select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+/* Checkbox wrapper */
+.notiion-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notiion-checkbox-wrapper input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #a78bfa;
+}
+
+/* Tag option chips (for select/multi_select) */
+.notiion-tag-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.notiion-tag-option {
+  padding: 4px 12px;
+  border: 1px solid #444;
+  background: #16213e;
+  color: #bbb;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.notiion-tag-option:hover {
+  border-color: #a78bfa;
+  color: #fff;
+}
+
+.notiion-tag-option.active {
+  background: #a78bfa;
+  border-color: #a78bfa;
+  color: #fff;
+}
+
 /* Rating */
 .notiion-rating {
   display: flex;

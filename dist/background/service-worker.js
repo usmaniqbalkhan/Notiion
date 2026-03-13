@@ -14,18 +14,8 @@
   var DEFAULT_NOTION_SETTINGS = {
     token: "",
     databaseId: "",
-    fieldMappings: {
-      title: "Name",
-      datetime: "Date",
-      workedOn: "Worked On",
-      completed: "Completed",
-      activity: "Activity",
-      participants: "Participants",
-      challenges: "Challenges",
-      nextStep: "Next Step",
-      focusScore: "Focus Score",
-      tags: "Tags"
-    }
+    fieldMappings: {},
+    dbProperties: []
   };
   var DEFAULT_TIMER_PREFERENCES = {
     defaultDurationMs: 30 * 60 * 1e3,
@@ -146,43 +136,70 @@
   }
 
   // src/shared/field-mapping.ts
-  function mapFormDataToNotionProperties(formData, fieldMappings) {
+  function mapDynamicFormToNotion(formData, dbProperties) {
     const properties = {};
-    if (fieldMappings.title) {
-      properties[fieldMappings.title] = {
-        title: [{ text: { content: formData.title || "Untitled Session" } }]
-      };
-    }
-    if (fieldMappings.datetime && formData.datetime) {
-      properties[fieldMappings.datetime] = {
-        date: { start: new Date(formData.datetime).toISOString() }
-      };
-    }
-    const richTextFields = [
-      "workedOn",
-      "completed",
-      "activity",
-      "participants",
-      "challenges",
-      "nextStep"
-    ];
-    for (const field of richTextFields) {
-      const mappingKey = fieldMappings[field];
-      if (mappingKey && formData[field]) {
-        properties[mappingKey] = {
-          rich_text: [{ text: { content: String(formData[field]) } }]
-        };
+    for (const prop of dbProperties) {
+      const value = formData[prop.name];
+      if (value === void 0 || value === "" || value === null) continue;
+      switch (prop.type) {
+        case "title":
+          properties[prop.name] = {
+            title: [{ text: { content: String(value) } }]
+          };
+          break;
+        case "rich_text":
+          properties[prop.name] = {
+            rich_text: [{ text: { content: String(value) } }]
+          };
+          break;
+        case "date":
+          if (String(value).trim()) {
+            properties[prop.name] = {
+              date: { start: new Date(String(value)).toISOString() }
+            };
+          }
+          break;
+        case "number":
+          properties[prop.name] = {
+            number: Number(value) || 0
+          };
+          break;
+        case "select":
+          properties[prop.name] = {
+            select: { name: String(value) }
+          };
+          break;
+        case "multi_select": {
+          const tags = Array.isArray(value) ? value : String(value).split(",").map((s) => s.trim()).filter(Boolean);
+          if (tags.length > 0) {
+            properties[prop.name] = {
+              multi_select: tags.map((tag) => ({ name: tag }))
+            };
+          }
+          break;
+        }
+        case "checkbox":
+          properties[prop.name] = {
+            checkbox: value === true || value === "true" || value === "1"
+          };
+          break;
+        case "url":
+          properties[prop.name] = { url: String(value) };
+          break;
+        case "email":
+          properties[prop.name] = { email: String(value) };
+          break;
+        case "phone_number":
+          properties[prop.name] = { phone_number: String(value) };
+          break;
+        default:
+          if (String(value).trim()) {
+            properties[prop.name] = {
+              rich_text: [{ text: { content: String(value) } }]
+            };
+          }
+          break;
       }
-    }
-    if (fieldMappings.focusScore && formData.focusScore) {
-      properties[fieldMappings.focusScore] = {
-        number: formData.focusScore
-      };
-    }
-    if (fieldMappings.tags && formData.tags && formData.tags.length > 0) {
-      properties[fieldMappings.tags] = {
-        multi_select: formData.tags.map((tag) => ({ name: tag }))
-      };
     }
     return properties;
   }
@@ -212,7 +229,7 @@
   }
   async function createCheckInPage(settings, formData) {
     try {
-      const properties = mapFormDataToNotionProperties(formData, settings.fieldMappings);
+      const properties = mapDynamicFormToNotion(formData, settings.dbProperties);
       const id = parseDatabaseId(settings.databaseId);
       const body = {
         parent: { database_id: id },
