@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="popup.css">
+  <title>Notiion</title>
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1 class="popup-title">Notiion</h1>
+      <span class="popup-subtitle">Productivity Check-in</span>
+    </header>
+
+    <!-- Timer Display -->
+    <div class="timer-display" id="timerDisplay">
+      <span class="timer-time" id="timerTime">00:00</span>
+      <span class="timer-status" id="timerStatus">Ready</span>
+    </div>
+
+    <!-- Duration Presets (shown when idle) -->
+    <div class="duration-section" id="durationSection">
+      <div class="preset-buttons">
+        <button class="preset-btn" data-minutes="15">15m</button>
+        <button class="preset-btn active" data-minutes="30">30m</button>
+        <button class="preset-btn" data-minutes="45">45m</button>
+        <button class="preset-btn" data-minutes="60">60m</button>
+      </div>
+      <div class="custom-duration">
+        <input type="number" id="customMinutes" min="1" max="480" placeholder="Custom" class="custom-input">
+        <span class="custom-label">min</span>
+      </div>
+    </div>
+
+    <!-- Timer Options -->
+    <div class="options-row" id="optionsRow">
+      <label class="toggle-label">
+        <input type="checkbox" id="recurringToggle">
+        <span>Recurring</span>
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" id="autoRestartToggle">
+        <span>Auto-restart</span>
+      </label>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="controls">
+      <button class="btn btn-primary" id="startBtn">Start Timer</button>
+      <button class="btn btn-warning hidden" id="pauseBtn">Pause</button>
+      <button class="btn btn-primary hidden" id="resumeBtn">Resume</button>
+      <button class="btn btn-danger hidden" id="stopBtn">Stop</button>
+    </div>
+
+    <!-- Draft badge -->
+    <div class="draft-badge hidden" id="draftBadge">
+      <span id="draftCount">0</span> unsent draft(s)
+    </div>
+
+    <!-- Footer -->
+    <footer class="popup-footer">
+      <a href="#" id="settingsLink">Settings</a>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

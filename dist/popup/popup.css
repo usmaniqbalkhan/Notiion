@@ -1,0 +1,228 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+}
+
+.popup-container {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.popup-header {
+  text-align: center;
+}
+
+.popup-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #a78bfa;
+  letter-spacing: 1px;
+}
+
+.popup-subtitle {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Timer display */
+.timer-display {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.timer-time {
+  display: block;
+  font-size: 48px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  line-height: 1;
+}
+
+.timer-status {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.timer-status.running {
+  color: #4ade80;
+}
+
+.timer-status.paused {
+  color: #fbbf24;
+}
+
+/* Duration presets */
+.duration-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.preset-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid #333;
+  background: #16213e;
+  color: #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset-btn:hover {
+  border-color: #a78bfa;
+  color: #fff;
+}
+
+.preset-btn.active {
+  background: #a78bfa;
+  color: #fff;
+  border-color: #a78bfa;
+}
+
+.custom-duration {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.custom-input {
+  width: 80px;
+  padding: 6px 10px;
+  border: 1px solid #333;
+  background: #16213e;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.custom-input::placeholder {
+  color: #666;
+}
+
+.custom-label {
+  color: #888;
+  font-size: 13px;
+}
+
+/* Options row */
+.options-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+  accent-color: #a78bfa;
+}
+
+/* Control buttons */
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: #a78bfa;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #8b5cf6;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: #000;
+}
+
+.btn-warning:hover {
+  background: #d97706;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Draft badge */
+.draft-badge {
+  text-align: center;
+  padding: 6px 12px;
+  background: #44403c;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #fbbf24;
+}
+
+/* Footer */
+.popup-footer {
+  text-align: center;
+  padding-top: 4px;
+  border-top: 1px solid #222;
+}
+
+.popup-footer a {
+  color: #888;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.popup-footer a:hover {
+  color: #a78bfa;
+}
