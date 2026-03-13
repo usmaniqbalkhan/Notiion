@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="options.css">
+  <title>Notiion - Settings</title>
+</head>
+<body>
+  <div class="options-container">
+    <header class="options-header">
+      <h1>Notiion Settings</h1>
+    </header>
+
+    <!-- Notion Integration -->
+    <section class="section">
+      <h2 class="section-title">Notion Integration</h2>
+
+      <div class="field-group">
+        <label for="notionToken">Integration Token</label>
+        <div class="input-row">
+          <input type="password" id="notionToken" placeholder="secret_..." class="input full-width">
+          <button type="button" id="toggleToken" class="btn-small">Show</button>
+        </div>
+        <p class="hint">Create an integration at <a href="https://www.notion.so/my-integrations" target="_blank">notion.so/my-integrations</a></p>
+      </div>
+
+      <div class="field-group">
+        <label for="databaseId">Database ID</label>
+        <input type="text" id="databaseId" placeholder="abc123..." class="input full-width">
+        <p class="hint">Found in your Notion database URL: notion.so/{workspace}/{database_id}?v=...</p>
+      </div>
+
+      <div class="field-group">
+        <button id="testConnection" class="btn btn-secondary">Test Connection</button>
+        <span id="connectionStatus" class="status-text"></span>
+      </div>
+    </section>
+
+    <!-- Field Mappings -->
+    <section class="section">
+      <h2 class="section-title">Field Mappings</h2>
+      <p class="section-desc">Map check-in form fields to your Notion database property names.</p>
+      <div id="fieldMappings" class="mappings-grid"></div>
+    </section>
+
+    <!-- Timer Defaults -->
+    <section class="section">
+      <h2 class="section-title">Timer Defaults</h2>
+
+      <div class="field-group">
+        <label for="defaultDuration">Default Duration (minutes)</label>
+        <input type="number" id="defaultDuration" min="1" max="480" value="30" class="input short">
+      </div>
+
+      <div class="field-group">
+        <label for="snoozeDuration">Snooze Duration (minutes)</label>
+        <input type="number" id="snoozeDuration" min="1" max="60" value="5" class="input short">
+      </div>
+
+      <div class="field-group inline">
+        <label><input type="checkbox" id="defaultRecurring"> Recurring by default</label>
+      </div>
+
+      <div class="field-group inline">
+        <label><input type="checkbox" id="defaultAutoRestart"> Auto-restart by default</label>
+      </div>
+    </section>
+
+    <!-- Drafts -->
+    <section class="section">
+      <h2 class="section-title">Drafts</h2>
+      <p id="draftInfo" class="section-desc">No unsent drafts.</p>
+      <div id="draftActions" class="hidden">
+        <button id="retryDrafts" class="btn btn-secondary">Retry All Drafts</button>
+        <button id="clearDrafts" class="btn btn-danger-small">Clear All Drafts</button>
+      </div>
+      <div id="draftList" class="draft-list"></div>
+    </section>
+
+    <!-- Save -->
+    <div class="save-bar">
+      <button id="saveBtn" class="btn btn-primary">Save Settings</button>
+      <span id="saveStatus" class="status-text"></span>
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>
