@@ -190,6 +190,19 @@
   // src/shared/notion-api.ts
   var NOTION_API_BASE = "https://api.notion.com/v1";
   var NOTION_VERSION = "2022-06-28";
+  function parseDatabaseId(input) {
+    const trimmed = input.trim();
+    if (trimmed.startsWith("http")) {
+      try {
+        const url = new URL(trimmed);
+        const pathParts = url.pathname.split("/").filter(Boolean);
+        const lastPart = pathParts[pathParts.length - 1] || "";
+        return lastPart.replace(/-/g, "");
+      } catch {
+      }
+    }
+    return trimmed.replace(/-/g, "");
+  }
   function getHeaders(token) {
     return {
       "Authorization": `Bearer ${token}`,
@@ -200,8 +213,9 @@
   async function createCheckInPage(settings, formData) {
     try {
       const properties = mapFormDataToNotionProperties(formData, settings.fieldMappings);
+      const id = parseDatabaseId(settings.databaseId);
       const body = {
-        parent: { database_id: settings.databaseId },
+        parent: { database_id: id },
         properties
       };
       const resp = await fetch(`${NOTION_API_BASE}/pages`, {

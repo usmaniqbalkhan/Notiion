@@ -10,6 +10,28 @@ interface NotionApiResult {
   data?: unknown;
 }
 
+// Extract the 32-char database ID from a full Notion URL or raw ID
+export function parseDatabaseId(input: string): string {
+  const trimmed = input.trim();
+
+  // If it's a URL, extract the ID from the path
+  if (trimmed.startsWith('http')) {
+    try {
+      const url = new URL(trimmed);
+      // Notion URL format: notion.so/{workspace}/{id}?v=... or notion.so/{id}?v=...
+      const pathParts = url.pathname.split('/').filter(Boolean);
+      const lastPart = pathParts[pathParts.length - 1] || '';
+      // Remove any dashes (Notion sometimes uses dashed UUIDs)
+      return lastPart.replace(/-/g, '');
+    } catch {
+      // Not a valid URL, fall through
+    }
+  }
+
+  // Already a raw ID — strip dashes just in case
+  return trimmed.replace(/-/g, '');
+}
+
 function getHeaders(token: string): Record<string, string> {
   return {
     'Authorization': `Bearer ${token}`,
@@ -24,7 +46,8 @@ export async function testConnection(
   databaseId: string
 ): Promise<NotionApiResult> {
   try {
-    const resp = await fetch(`${NOTION_API_BASE}/databases/${databaseId}`, {
+    const id = parseDatabaseId(databaseId);
+    const resp = await fetch(`${NOTION_API_BASE}/databases/${id}`, {
       method: 'GET',
       headers: getHeaders(token),
     });
@@ -55,8 +78,9 @@ export async function createCheckInPage(
   try {
     const properties = mapFormDataToNotionProperties(formData, settings.fieldMappings);
 
+    const id = parseDatabaseId(settings.databaseId);
     const body = {
-      parent: { database_id: settings.databaseId },
+      parent: { database_id: id },
       properties,
     };
 
