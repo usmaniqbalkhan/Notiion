@@ -90,6 +90,11 @@ body {
   color: #555;
 }
 
+select.input {
+  appearance: auto;
+  cursor: pointer;
+}
+
 .full-width {
   width: 100%;
 }

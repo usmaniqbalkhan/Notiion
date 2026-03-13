@@ -70,6 +70,22 @@ export async function testConnection(
   }
 }
 
+// Database property info returned from schema fetch
+export interface NotionProperty {
+  name: string;
+  type: string;
+}
+
+// Extract property names and types from a database schema response
+export function extractDatabaseProperties(dbData: Record<string, unknown>): NotionProperty[] {
+  const properties = dbData.properties as Record<string, { type: string }> | undefined;
+  if (!properties) return [];
+  return Object.entries(properties).map(([name, prop]) => ({
+    name,
+    type: prop.type,
+  }));
+}
+
 // Create a new page (row) in the Notion database
 export async function createCheckInPage(
   settings: NotionSettings,

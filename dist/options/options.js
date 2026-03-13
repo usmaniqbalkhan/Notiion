@@ -160,6 +160,14 @@
       };
     }
   }
+  function extractDatabaseProperties(dbData) {
+    const properties = dbData.properties;
+    if (!properties) return [];
+    return Object.entries(properties).map(([name, prop]) => ({
+      name,
+      type: prop.type
+    }));
+  }
   async function createCheckInPage(settings, formData) {
     try {
       const properties = mapFormDataToNotionProperties(formData, settings.fieldMappings);
@@ -279,6 +287,7 @@
     notionToken.type = isPassword ? "text" : "password";
     toggleTokenBtn.textContent = isPassword ? "Hide" : "Show";
   });
+  var detectedProperties = [];
   testConnectionBtn.addEventListener("click", async () => {
     connectionStatus.textContent = "Testing...";
     connectionStatus.className = "status-text";
@@ -286,13 +295,48 @@
     if (result.success) {
       connectionStatus.textContent = "Connected successfully!";
       connectionStatus.className = "status-text success";
+      const currentMappings = collectFieldMappings();
+      await setNotionSettings({
+        token: notionToken.value.trim(),
+        databaseId: databaseId.value.trim(),
+        fieldMappings: currentMappings
+      });
+      detectedProperties = extractDatabaseProperties(result.data);
+      if (detectedProperties.length > 0) {
+        const autoMappings = autoMapFields(detectedProperties, currentMappings);
+        renderFieldMappings(autoMappings, detectedProperties);
+        await setNotionSettings({
+          token: notionToken.value.trim(),
+          databaseId: databaseId.value.trim(),
+          fieldMappings: autoMappings
+        });
+        connectionStatus.textContent = `Connected! Found ${detectedProperties.length} properties. Mappings updated.`;
+      }
     } else {
       connectionStatus.textContent = result.error || "Connection failed";
       connectionStatus.className = "status-text error";
     }
   });
-  function renderFieldMappings(mappings) {
+  function autoMapFields(properties, currentMappings) {
+    const mappings = { ...currentMappings };
+    const propNames = properties.map((p) => p.name);
+    for (const field of DEFAULT_FORM_SCHEMA) {
+      if (mappings[field.id] && propNames.includes(mappings[field.id])) continue;
+      const match = propNames.find((name) => {
+        const lower = name.toLowerCase();
+        const fieldLower = field.label.toLowerCase();
+        const fieldIdLower = field.id.toLowerCase();
+        return lower === fieldLower || lower === fieldIdLower || lower.includes(fieldIdLower) || fieldIdLower.includes(lower);
+      });
+      if (match) {
+        mappings[field.id] = match;
+      }
+    }
+    return mappings;
+  }
+  function renderFieldMappings(mappings, properties) {
     fieldMappingsContainer.innerHTML = "";
+    const props = properties || detectedProperties;
     for (const field of DEFAULT_FORM_SCHEMA) {
       const row = document.createElement("div");
       row.className = "mapping-row";
@@ -302,25 +346,48 @@
       const arrow = document.createElement("span");
       arrow.className = "mapping-arrow";
       arrow.textContent = "\u2192";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "input mapping-input";
-      input.dataset.fieldId = field.id;
-      input.value = mappings[field.id] || "";
-      input.placeholder = `Notion property name for "${field.label}"`;
-      row.appendChild(label);
-      row.appendChild(arrow);
-      row.appendChild(input);
+      if (props.length > 0) {
+        const select = document.createElement("select");
+        select.className = "input mapping-input";
+        select.dataset.fieldId = field.id;
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "";
+        emptyOpt.textContent = "-- Not mapped --";
+        select.appendChild(emptyOpt);
+        for (const prop of props) {
+          const opt = document.createElement("option");
+          opt.value = prop.name;
+          opt.textContent = `${prop.name} (${prop.type})`;
+          if (mappings[field.id] === prop.name) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        }
+        row.appendChild(label);
+        row.appendChild(arrow);
+        row.appendChild(select);
+      } else {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "input mapping-input";
+        input.dataset.fieldId = field.id;
+        input.value = mappings[field.id] || "";
+        input.placeholder = `Notion property name for "${field.label}"`;
+        row.appendChild(label);
+        row.appendChild(arrow);
+        row.appendChild(input);
+      }
       fieldMappingsContainer.appendChild(row);
     }
   }
   function collectFieldMappings() {
     const mappings = {};
-    const inputs = fieldMappingsContainer.querySelectorAll("input");
-    inputs.forEach((input) => {
-      const fieldId = input.dataset.fieldId;
+    const elements = fieldMappingsContainer.querySelectorAll("input, select");
+    elements.forEach((el) => {
+      const element = el;
+      const fieldId = element.dataset.fieldId;
       if (fieldId) {
-        mappings[fieldId] = input.value.trim();
+        mappings[fieldId] = element.value.trim();
       }
     });
     return mappings;

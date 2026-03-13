@@ -7,7 +7,7 @@ import {
   clearDrafts,
   removeDraft,
 } from '../shared/storage';
-import { testConnection, createCheckInPage } from '../shared/notion-api';
+import { testConnection, createCheckInPage, extractDatabaseProperties, type NotionProperty } from '../shared/notion-api';
 import { DEFAULT_NOTION_SETTINGS, type NotionSettings, type Draft } from '../shared/types';
 import { DEFAULT_FORM_SCHEMA } from '../shared/form-schema';
 
@@ -37,7 +37,10 @@ toggleTokenBtn.addEventListener('click', () => {
   toggleTokenBtn.textContent = isPassword ? 'Hide' : 'Show';
 });
 
-// Test connection
+// Detected Notion database properties (populated on successful connection)
+let detectedProperties: NotionProperty[] = [];
+
+// Test connection — auto-save settings and fetch DB schema on success
 testConnectionBtn.addEventListener('click', async () => {
   connectionStatus.textContent = 'Testing...';
   connectionStatus.className = 'status-text';
@@ -45,15 +48,66 @@ testConnectionBtn.addEventListener('click', async () => {
   if (result.success) {
     connectionStatus.textContent = 'Connected successfully!';
     connectionStatus.className = 'status-text success';
+
+    // Auto-save token and database ID immediately so check-ins work
+    const currentMappings = collectFieldMappings();
+    await setNotionSettings({
+      token: notionToken.value.trim(),
+      databaseId: databaseId.value.trim(),
+      fieldMappings: currentMappings,
+    });
+
+    // Extract database properties and re-render field mappings with dropdowns
+    detectedProperties = extractDatabaseProperties(result.data as Record<string, unknown>);
+    if (detectedProperties.length > 0) {
+      const autoMappings = autoMapFields(detectedProperties, currentMappings);
+      renderFieldMappings(autoMappings, detectedProperties);
+      // Auto-save the improved mappings
+      await setNotionSettings({
+        token: notionToken.value.trim(),
+        databaseId: databaseId.value.trim(),
+        fieldMappings: autoMappings,
+      });
+      connectionStatus.textContent = `Connected! Found ${detectedProperties.length} properties. Mappings updated.`;
+    }
   } else {
     connectionStatus.textContent = result.error || 'Connection failed';
     connectionStatus.className = 'status-text error';
   }
 });
 
-// Render field mapping inputs
-function renderFieldMappings(mappings: Record<string, string>) {
+// Auto-map form fields to Notion properties by matching names (fuzzy)
+function autoMapFields(
+  properties: NotionProperty[],
+  currentMappings: Record<string, string>
+): Record<string, string> {
+  const mappings = { ...currentMappings };
+  const propNames = properties.map(p => p.name);
+
+  for (const field of DEFAULT_FORM_SCHEMA) {
+    // If already mapped to an existing property, keep it
+    if (mappings[field.id] && propNames.includes(mappings[field.id])) continue;
+
+    // Try to find a matching Notion property
+    const match = propNames.find(name => {
+      const lower = name.toLowerCase();
+      const fieldLower = field.label.toLowerCase();
+      const fieldIdLower = field.id.toLowerCase();
+      return lower === fieldLower || lower === fieldIdLower
+        || lower.includes(fieldIdLower) || fieldIdLower.includes(lower);
+    });
+    if (match) {
+      mappings[field.id] = match;
+    }
+  }
+  return mappings;
+}
+
+// Render field mapping inputs — uses dropdowns if database properties are detected
+function renderFieldMappings(mappings: Record<string, string>, properties?: NotionProperty[]) {
   fieldMappingsContainer.innerHTML = '';
+  const props = properties || detectedProperties;
+
   for (const field of DEFAULT_FORM_SCHEMA) {
     const row = document.createElement('div');
     row.className = 'mapping-row';
@@ -66,28 +120,58 @@ function renderFieldMappings(mappings: Record<string, string>) {
     arrow.className = 'mapping-arrow';
     arrow.textContent = '\u2192';
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'input mapping-input';
-    input.dataset.fieldId = field.id;
-    input.value = mappings[field.id] || '';
-    input.placeholder = `Notion property name for "${field.label}"`;
+    if (props.length > 0) {
+      // Render a dropdown select with detected properties
+      const select = document.createElement('select');
+      select.className = 'input mapping-input';
+      select.dataset.fieldId = field.id;
 
-    row.appendChild(label);
-    row.appendChild(arrow);
-    row.appendChild(input);
+      // Empty option
+      const emptyOpt = document.createElement('option');
+      emptyOpt.value = '';
+      emptyOpt.textContent = '-- Not mapped --';
+      select.appendChild(emptyOpt);
+
+      for (const prop of props) {
+        const opt = document.createElement('option');
+        opt.value = prop.name;
+        opt.textContent = `${prop.name} (${prop.type})`;
+        if (mappings[field.id] === prop.name) {
+          opt.selected = true;
+        }
+        select.appendChild(opt);
+      }
+
+      row.appendChild(label);
+      row.appendChild(arrow);
+      row.appendChild(select);
+    } else {
+      // Fallback: text input
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'input mapping-input';
+      input.dataset.fieldId = field.id;
+      input.value = mappings[field.id] || '';
+      input.placeholder = `Notion property name for "${field.label}"`;
+
+      row.appendChild(label);
+      row.appendChild(arrow);
+      row.appendChild(input);
+    }
+
     fieldMappingsContainer.appendChild(row);
   }
 }
 
-// Collect field mappings from UI
+// Collect field mappings from UI (supports both <input> and <select>)
 function collectFieldMappings(): Record<string, string> {
   const mappings: Record<string, string> = {};
-  const inputs = fieldMappingsContainer.querySelectorAll('input');
-  inputs.forEach(input => {
-    const fieldId = (input as HTMLInputElement).dataset.fieldId;
+  const elements = fieldMappingsContainer.querySelectorAll('input, select');
+  elements.forEach(el => {
+    const element = el as HTMLInputElement | HTMLSelectElement;
+    const fieldId = element.dataset.fieldId;
     if (fieldId) {
-      mappings[fieldId] = (input as HTMLInputElement).value.trim();
+      mappings[fieldId] = element.value.trim();
     }
   });
   return mappings;
