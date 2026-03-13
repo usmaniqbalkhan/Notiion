@@ -1,6 +1,6 @@
-import { renderDynamicForm } from '../shared/form-renderer';
+import { renderDynamicForm, type AutoFillData } from '../shared/form-renderer';
 import { MessageType, sendMessage } from '../shared/messages';
-import { getNotionSettings } from '../shared/storage';
+import { getNotionSettings, getLastSubmission } from '../shared/storage';
 import type { DbProperty } from '../shared/types';
 
 const formContainer = document.getElementById('formContainer')!;
@@ -19,7 +19,14 @@ async function init() {
     ? settings.dbProperties
     : fallbackProperties();
 
-  const form = renderDynamicForm(formContainer, dbProps);
+  // Load last submission for auto-fill
+  const lastSub = await getLastSubmission();
+  const autoFill: AutoFillData = {
+    lastFormData: lastSub?.formData || null,
+    submittedAt: lastSub?.submittedAt || null,
+  };
+
+  const form = renderDynamicForm(formContainer, dbProps, autoFill);
   collectData = form.collectData;
 }
 

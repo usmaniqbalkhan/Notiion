@@ -27,7 +27,8 @@
     TIMER_STATE: "timerState",
     NOTION_SETTINGS: "notionSettings",
     TIMER_PREFERENCES: "timerPreferences",
-    DRAFTS: "drafts"
+    DRAFTS: "drafts",
+    LAST_SUBMISSION: "lastSubmission"
   };
 
   // src/shared/storage.ts
@@ -54,6 +55,9 @@
     const drafts = await getDrafts();
     drafts.push(draft);
     return setItem(STORAGE_KEYS.DRAFTS, drafts);
+  }
+  async function setLastSubmission(submission) {
+    return setItem(STORAGE_KEYS.LAST_SUBMISSION, submission);
   }
 
   // src/shared/timer.ts
@@ -356,6 +360,10 @@
             await saveDraft(draft);
             return { success: false, error: `${result.error} \u2014 Saved as draft.` };
           }
+          await setLastSubmission({
+            formData: message.formData,
+            submittedAt: Date.now()
+          });
           const state = await getTimerState();
           if (state.status === "idle") {
             const currentState = await getTimerState();

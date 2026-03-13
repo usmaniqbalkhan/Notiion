@@ -1,9 +1,10 @@
 "use strict";
 (() => {
   // src/shared/form-renderer.ts
-  function renderDynamicForm(container, dbProperties) {
+  function renderDynamicForm(container, dbProperties, autoFill) {
     const formEl = document.createElement("div");
     formEl.className = "notiion-form";
+    const lastData = autoFill?.lastFormData || null;
     for (const prop of dbProperties) {
       if (isComputedProperty(prop.type)) continue;
       const group = document.createElement("div");
@@ -26,6 +27,10 @@
           input.className = "notiion-input";
           input.dataset.propName = prop.name;
           input.placeholder = `Enter ${prop.name}...`;
+          const autoValue = getAutoFillValue(prop.name, lastData);
+          if (autoValue) {
+            input.value = autoValue;
+          }
           group.appendChild(input);
           break;
         }
@@ -187,6 +192,34 @@
     }
     return { collectData };
   }
+  function getAutoFillValue(propName, lastData) {
+    const nameLower = propName.toLowerCase().trim();
+    if (nameLower === "start time" || nameLower === "start_time" || nameLower === "starttime") {
+      if (lastData) {
+        const endTimeKey = Object.keys(lastData).find((k) => {
+          const kl = k.toLowerCase().trim();
+          return kl === "end time" || kl === "end_time" || kl === "endtime";
+        });
+        if (endTimeKey && lastData[endTimeKey]) {
+          return String(lastData[endTimeKey]);
+        }
+      }
+      return formatTimeNow();
+    }
+    if (nameLower === "end time" || nameLower === "end_time" || nameLower === "endtime") {
+      return formatTimeNow();
+    }
+    return "";
+  }
+  function formatTimeNow() {
+    const now = /* @__PURE__ */ new Date();
+    let hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? "pm" : "am";
+    hours = hours % 12 || 12;
+    const minStr = minutes < 10 ? `0${minutes}` : String(minutes);
+    return `${hours}:${minStr}${ampm}`;
+  }
   function sanitizeId(name) {
     return name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
   }
@@ -253,7 +286,8 @@
     TIMER_STATE: "timerState",
     NOTION_SETTINGS: "notionSettings",
     TIMER_PREFERENCES: "timerPreferences",
-    DRAFTS: "drafts"
+    DRAFTS: "drafts",
+    LAST_SUBMISSION: "lastSubmission"
   };
 
   // src/shared/storage.ts
@@ -264,6 +298,9 @@
   async function getNotionSettings() {
     return getItem(STORAGE_KEYS.NOTION_SETTINGS, { ...DEFAULT_NOTION_SETTINGS });
   }
+  async function getLastSubmission() {
+    return getItem(STORAGE_KEYS.LAST_SUBMISSION, null);
+  }
 
   // src/content/modal.ts
   if (!document.querySelector(".notiion-overlay")) {
@@ -272,7 +309,12 @@
   async function initModal() {
     const settings = await getNotionSettings();
     const dbProps = settings.dbProperties && settings.dbProperties.length > 0 ? settings.dbProperties : fallbackProperties();
-    createModal(dbProps);
+    const lastSub = await getLastSubmission();
+    const autoFill = {
+      lastFormData: lastSub?.formData || null,
+      submittedAt: lastSub?.submittedAt || null
+    };
+    createModal(dbProps, autoFill);
   }
   function fallbackProperties() {
     return [
@@ -281,7 +323,7 @@
       { name: "Notes", type: "rich_text" }
     ];
   }
-  function createModal(dbProperties) {
+  function createModal(dbProperties, autoFill) {
     const overlay = document.createElement("div");
     overlay.className = "notiion-overlay";
     const modal = document.createElement("div");
@@ -300,7 +342,7 @@
     header.appendChild(closeBtn);
     modal.appendChild(header);
     const formContainer = document.createElement("div");
-    const { collectData } = renderDynamicForm(formContainer, dbProperties);
+    const { collectData } = renderDynamicForm(formContainer, dbProperties, autoFill);
     modal.appendChild(formContainer);
     const toast = document.createElement("div");
     toast.className = "notiion-toast";

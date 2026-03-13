@@ -1,12 +1,22 @@
 import type { DbProperty, DynamicFormData } from './types';
 
+// Auto-fill options from last submission
+export interface AutoFillData {
+  lastFormData: DynamicFormData | null;
+  submittedAt: number | null; // timestamp of last submission
+}
+
 // Renders form fields from Notion database properties into a container element
+// lastData is used for smart auto-fill (e.g., Start Time = last End Time)
 export function renderDynamicForm(
   container: HTMLElement,
-  dbProperties: DbProperty[]
+  dbProperties: DbProperty[],
+  autoFill?: AutoFillData
 ): { collectData: () => DynamicFormData } {
   const formEl = document.createElement('div');
   formEl.className = 'notiion-form';
+
+  const lastData = autoFill?.lastFormData || null;
 
   for (const prop of dbProperties) {
     if (isComputedProperty(prop.type)) continue;
@@ -34,6 +44,13 @@ export function renderDynamicForm(
         input.className = 'notiion-input';
         input.dataset.propName = prop.name;
         input.placeholder = `Enter ${prop.name}...`;
+
+        // Smart auto-fill for time fields
+        const autoValue = getAutoFillValue(prop.name, lastData);
+        if (autoValue) {
+          input.value = autoValue;
+        }
+
         group.appendChild(input);
         break;
       }
@@ -44,6 +61,7 @@ export function renderDynamicForm(
         input.id = `notiion-${fieldId}`;
         input.className = 'notiion-input';
         input.dataset.propName = prop.name;
+        // Always auto-fill with current date/time
         input.value = new Date().toISOString().slice(0, 16);
         group.appendChild(input);
         break;
@@ -218,6 +236,51 @@ export function renderDynamicForm(
   }
 
   return { collectData };
+}
+
+// Smart auto-fill logic:
+// - "Start Time" gets last session's "End Time" value
+// - "End Time" gets current time formatted as h:mmam/pm
+// - Date fields get today's date
+function getAutoFillValue(
+  propName: string,
+  lastData: DynamicFormData | null
+): string {
+  const nameLower = propName.toLowerCase().trim();
+
+  // "Start Time" → use last session's "End Time"
+  if (nameLower === 'start time' || nameLower === 'start_time' || nameLower === 'starttime') {
+    if (lastData) {
+      // Find the "End Time" value from last submission
+      const endTimeKey = Object.keys(lastData).find(k => {
+        const kl = k.toLowerCase().trim();
+        return kl === 'end time' || kl === 'end_time' || kl === 'endtime';
+      });
+      if (endTimeKey && lastData[endTimeKey]) {
+        return String(lastData[endTimeKey]);
+      }
+    }
+    // Fallback: current time
+    return formatTimeNow();
+  }
+
+  // "End Time" → current time
+  if (nameLower === 'end time' || nameLower === 'end_time' || nameLower === 'endtime') {
+    return formatTimeNow();
+  }
+
+  return '';
+}
+
+// Format current time as h:mmam/pm (e.g., "11:30am")
+function formatTimeNow(): string {
+  const now = new Date();
+  let hours = now.getHours();
+  const minutes = now.getMinutes();
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12 || 12;
+  const minStr = minutes < 10 ? `0${minutes}` : String(minutes);
+  return `${hours}:${minStr}${ampm}`;
 }
 
 function sanitizeId(name: string): string {

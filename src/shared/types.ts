@@ -69,10 +69,17 @@ export interface Draft {
   error?: string;
 }
 
+// Last submission data — used to auto-fill next session's start time
+export interface LastSubmission {
+  formData: DynamicFormData;
+  submittedAt: number;
+}
+
 // Storage keys
 export const STORAGE_KEYS = {
   TIMER_STATE: 'timerState',
   NOTION_SETTINGS: 'notionSettings',
   TIMER_PREFERENCES: 'timerPreferences',
   DRAFTS: 'drafts',
+  LAST_SUBMISSION: 'lastSubmission',
 } as const;

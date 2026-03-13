@@ -8,7 +8,7 @@ import {
   isTimerAlarm,
   restoreTimerAlarm,
 } from '../shared/timer';
-import { getTimerState, setTimerState, getNotionSettings, saveDraft } from '../shared/storage';
+import { getTimerState, setTimerState, getNotionSettings, saveDraft, setLastSubmission } from '../shared/storage';
 import { createCheckInPage } from '../shared/notion-api';
 import { DEFAULT_TIMER_STATE, type Draft } from '../shared/types';
 
@@ -147,6 +147,12 @@ async function handleMessage(message: ExtensionMessage): Promise<MessageResponse
           await saveDraft(draft);
           return { success: false, error: `${result.error} — Saved as draft.` };
         }
+
+        // Save last submission for auto-fill in next session
+        await setLastSubmission({
+          formData: message.formData,
+          submittedAt: Date.now(),
+        });
 
         // If recurring mode (non-auto), restart timer after successful submission
         const state = await getTimerState();

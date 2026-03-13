@@ -1,6 +1,6 @@
-import { renderDynamicForm } from '../shared/form-renderer';
+import { renderDynamicForm, type AutoFillData } from '../shared/form-renderer';
 import { MessageType, sendMessage } from '../shared/messages';
-import { getNotionSettings } from '../shared/storage';
+import { getNotionSettings, getLastSubmission } from '../shared/storage';
 import type { DbProperty } from '../shared/types';
 
 // Prevent multiple injections
@@ -13,7 +13,15 @@ async function initModal() {
   const dbProps = settings.dbProperties && settings.dbProperties.length > 0
     ? settings.dbProperties
     : fallbackProperties();
-  createModal(dbProps);
+
+  // Load last submission for auto-fill
+  const lastSub = await getLastSubmission();
+  const autoFill: AutoFillData = {
+    lastFormData: lastSub?.formData || null,
+    submittedAt: lastSub?.submittedAt || null,
+  };
+
+  createModal(dbProps, autoFill);
 }
 
 // Minimal fallback if DB not connected yet
@@ -25,7 +33,7 @@ function fallbackProperties(): DbProperty[] {
   ];
 }
 
-function createModal(dbProperties: DbProperty[]) {
+function createModal(dbProperties: DbProperty[], autoFill?: AutoFillData) {
   const overlay = document.createElement('div');
   overlay.className = 'notiion-overlay';
 
@@ -52,7 +60,7 @@ function createModal(dbProperties: DbProperty[]) {
 
   // Dynamic form from DB properties
   const formContainer = document.createElement('div');
-  const { collectData } = renderDynamicForm(formContainer, dbProperties);
+  const { collectData } = renderDynamicForm(formContainer, dbProperties, autoFill);
   modal.appendChild(formContainer);
 
   // Toast area

@@ -7,6 +7,7 @@ import {
   type NotionSettings,
   type TimerPreferences,
   type Draft,
+  type LastSubmission,
 } from './types';
 
 // Generic get/set wrappers for chrome.storage.local
@@ -66,4 +67,13 @@ export async function removeDraft(id: string): Promise<void> {
 
 export async function clearDrafts(): Promise<void> {
   return setItem(STORAGE_KEYS.DRAFTS, []);
+}
+
+// Last submission
+export async function getLastSubmission(): Promise<LastSubmission | null> {
+  return getItem<LastSubmission | null>(STORAGE_KEYS.LAST_SUBMISSION, null);
+}
+
+export async function setLastSubmission(submission: LastSubmission): Promise<void> {
+  return setItem(STORAGE_KEYS.LAST_SUBMISSION, submission);
 }

@@ -27,7 +27,8 @@
     TIMER_STATE: "timerState",
     NOTION_SETTINGS: "notionSettings",
     TIMER_PREFERENCES: "timerPreferences",
-    DRAFTS: "drafts"
+    DRAFTS: "drafts",
+    LAST_SUBMISSION: "lastSubmission"
   };
 
   // src/shared/storage.ts
